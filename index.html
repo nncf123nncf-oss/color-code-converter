@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="HEX、RGB、HSLを相互に変換できるカラーコード変換ツールです。">
+  <title>カラーコード変換ツール</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --background: #FBEEE6;
+      --surface: #FFFFFF;
+      --text: #332420;
+      --muted: #7A6259;
+      --accent: #C1592B;
+      --danger: #D93025;
+      --border: #EBD9CE;
+      --radius: 6px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      min-width: 320px;
+      margin: 0;
+      background: var(--background);
+      color: var(--text);
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      line-height: 1.5;
+    }
+
+    .page {
+      width: min(100% - 32px, 560px);
+      margin: 0 auto;
+      padding: 32px 0 40px;
+    }
+
+    .page-header { margin-bottom: 24px; }
+
+    h1 {
+      margin: 0;
+      font-size: 18px;
+      line-height: 1.4;
+    }
+
+    .lead {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .tool {
+      padding: 16px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+    }
+
+    .preview {
+      width: 100%;
+      height: 80px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: #FF0000;
+    }
+
+    .field { margin-top: 24px; }
+
+    .field-label {
+      display: block;
+      margin: 0 0 8px;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .color-input,
+    button {
+      display: block;
+      width: 100%;
+      min-height: 44px;
+      border-radius: var(--radius);
+      font-size: 16px;
+    }
+
+    .color-input {
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    .color-input::placeholder { color: var(--muted); }
+    .color-input[aria-invalid="true"] { border-color: var(--danger); }
+
+    button {
+      margin-top: 8px;
+      padding: 10px 16px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+      font-family: inherit;
+      font-weight: 700;
+    }
+
+    button:hover { background: #FFF8F4; }
+    button:active { transform: translateY(1px); }
+
+    .copy-button.is-copied {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #FFFFFF;
+    }
+
+    .error {
+      min-height: 21px;
+      margin: 4px 0 0;
+      color: var(--danger);
+      font-size: 14px;
+    }
+
+    .error[hidden] { display: none; }
+
+    .reset-button { margin-top: 24px; }
+
+    .color-input:focus-visible,
+    button:focus-visible {
+      outline: 3px solid rgb(193 89 43 / 32%);
+      outline-offset: 2px;
+    }
+
+    @media (max-width: 480px) {
+      .page { padding-top: 24px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="page-header">
+      <h1>カラーコード変換ツール</h1>
+      <p class="lead">HEX・RGB・HSLのどれか1つを入れると残りが自動で出ます</p>
+    </header>
+
+    <section class="tool" aria-label="カラーコード変換">
+      <div class="preview" id="preview" aria-label="現在の色のプレビュー"></div>
+
+      <div class="field">
+        <label class="field-label" for="hex">HEX</label>
+        <input class="color-input" id="hex" type="text" inputmode="text" autocomplete="off" spellcheck="false" placeholder="#RRGGBB" aria-describedby="hex-error">
+        <p class="error" id="hex-error" role="alert" hidden></p>
+        <button class="copy-button" type="button" data-copy="hex">コピー</button>
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="rgb">RGB</label>
+        <input class="color-input" id="rgb" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" placeholder="255, 0, 0" aria-describedby="rgb-error">
+        <p class="error" id="rgb-error" role="alert" hidden></p>
+        <button class="copy-button" type="button" data-copy="rgb">コピー</button>
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="hsl">HSL</label>
+        <input class="color-input" id="hsl" type="text" inputmode="text" autocomplete="off" spellcheck="false" placeholder="0, 100%, 50%" aria-describedby="hsl-error">
+        <p class="error" id="hsl-error" role="alert" hidden></p>
+        <button class="copy-button" type="button" data-copy="hsl">コピー</button>
+      </div>
+
+      <button class="reset-button" id="reset" type="button">赤（#FF0000）に戻す</button>
+    </section>
+  </main>
+
+  <script>
+    const inputs = {
+      hex: document.querySelector('#hex'),
+      rgb: document.querySelector('#rgb'),
+      hsl: document.querySelector('#hsl')
+    };
+    const preview = document.querySelector('#preview');
+    const errors = {
+      hex: document.querySelector('#hex-error'),
+      rgb: document.querySelector('#rgb-error'),
+      hsl: document.querySelector('#hsl-error')
+    };
+    const copyButtons = document.querySelectorAll('.copy-button');
+
+    function clamp(value, min, max) {
+      return Math.min(Math.max(value, min), max);
+    }
+
+    function parseHex(value) {
+      const match = value.trim().match(/^#?([\da-fA-F]{6})$/u);
+      if (!match) return null;
+
+      const hex = match[1];
+      return {
+        r: Number.parseInt(hex.slice(0, 2), 16),
+        g: Number.parseInt(hex.slice(2, 4), 16),
+        b: Number.parseInt(hex.slice(4, 6), 16)
+      };
+    }
+
+    function parseRgb(value) {
+      const match = value.trim().match(/^(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})$/u);
+      if (!match) return null;
+
+      const [r, g, b] = match.slice(1).map(Number);
+      if ([r, g, b].some((channel) => channel < 0 || channel > 255)) return null;
+      return { r, g, b };
+    }
+
+    function parseHsl(value) {
+      const match = value.trim().match(/^(\d{1,3}(?:\.\d+)?)\s*,\s*(\d{1,3}(?:\.\d+)?)%\s*,\s*(\d{1,3}(?:\.\d+)?)%$/u);
+      if (!match) return null;
+
+      const [h, s, l] = match.slice(1).map(Number);
+      if (h < 0 || h > 360 || s < 0 || s > 100 || l < 0 || l > 100) return null;
+      return hslToRgb(h, s, l);
+    }
+
+    function rgbToHsl(r, g, b) {
+      const red = r / 255;
+      const green = g / 255;
+      const blue = b / 255;
+      const max = Math.max(red, green, blue);
+      const min = Math.min(red, green, blue);
+      const delta = max - min;
+      let h = 0;
+      let s = 0;
+      const l = (max + min) / 2;
+
+      if (delta !== 0) {
+        s = delta / (1 - Math.abs(2 * l - 1));
+        if (max === red) h = 60 * (((green - blue) / delta) % 6);
+        else if (max === green) h = 60 * ((blue - red) / delta + 2);
+        else h = 60 * ((red - green) / delta + 4);
+      }
+
+      if (h < 0) h += 360;
+      return { h: Math.round(h), s: Math.round(s * 100), l: Math.round(l * 100) };
+    }
+
+    function hslToRgb(h, s, l) {
+      const hue = h === 360 ? 0 : h;
+      const saturation = s / 100;
+      const lightness = l / 100;
+      const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation;
+      const segment = hue / 60;
+      const secondary = chroma * (1 - Math.abs((segment % 2) - 1));
+      const match = lightness - chroma / 2;
+      let red = 0;
+      let green = 0;
+      let blue = 0;
+
+      if (segment < 1) [red, green, blue] = [chroma, secondary, 0];
+      else if (segment < 2) [red, green, blue] = [secondary, chroma, 0];
+      else if (segment < 3) [red, green, blue] = [0, chroma, secondary];
+      else if (segment < 4) [red, green, blue] = [0, secondary, chroma];
+      else if (segment < 5) [red, green, blue] = [secondary, 0, chroma];
+      else [red, green, blue] = [chroma, 0, secondary];
+
+      return {
+        r: Math.round(clamp((red + match) * 255, 0, 255)),
+        g: Math.round(clamp((green + match) * 255, 0, 255)),
+        b: Math.round(clamp((blue + match) * 255, 0, 255))
+      };
+    }
+
+    function rgbToHex({ r, g, b }) {
+      return `#${[r, g, b].map((channel) => channel.toString(16).padStart(2, '0')).join('').toUpperCase()}`;
+    }
+
+    function showError(type) {
+      inputs[type].setAttribute('aria-invalid', 'true');
+      errors[type].textContent = '正しい形式で入力してください';
+      errors[type].hidden = false;
+    }
+
+    function clearError(type) {
+      inputs[type].removeAttribute('aria-invalid');
+      errors[type].textContent = '';
+      errors[type].hidden = true;
+    }
+
+    function updateColor(rgb) {
+      const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+      inputs.hex.value = rgbToHex(rgb);
+      inputs.rgb.value = `${rgb.r}, ${rgb.g}, ${rgb.b}`;
+      inputs.hsl.value = `${hsl.h}, ${hsl.s}%, ${hsl.l}%`;
+      preview.style.backgroundColor = inputs.hex.value;
+      Object.keys(inputs).forEach(clearError);
+    }
+
+    function updateFromInput(type) {
+      const parsers = { hex: parseHex, rgb: parseRgb, hsl: parseHsl };
+      const rgb = parsers[type](inputs[type].value);
+      if (!rgb) {
+        showError(type);
+        return;
+      }
+      updateColor(rgb);
+    }
+
+    async function copyValue(button) {
+      const type = button.dataset.copy;
+      const value = inputs[type].value;
+      const originalLabel = 'コピー';
+
+      try {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(value);
+        } else {
+          inputs[type].focus();
+          inputs[type].select();
+          if (!document.execCommand('copy')) throw new Error('Copy failed');
+        }
+        button.textContent = 'コピーしました';
+        button.classList.add('is-copied');
+      } catch {
+        inputs[type].focus();
+        inputs[type].select();
+        button.textContent = 'コピーできませんでした';
+        button.classList.add('is-copied');
+      }
+
+      window.setTimeout(() => {
+        button.textContent = originalLabel;
+        button.classList.remove('is-copied');
+      }, 1600);
+    }
+
+    Object.entries(inputs).forEach(([type, input]) => {
+      input.addEventListener('input', () => updateFromInput(type));
+    });
+
+    copyButtons.forEach((button) => {
+      button.addEventListener('click', () => copyValue(button));
+    });
+
+    document.querySelector('#reset').addEventListener('click', () => updateColor({ r: 255, g: 0, b: 0 }));
+
+    updateColor({ r: 255, g: 0, b: 0 });
+  </script>
+</body>
+</html>
